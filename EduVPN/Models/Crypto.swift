@@ -32,6 +32,7 @@ class Crypto {
         var attributes = [String: Any]()
         attributes[kSecAttrKeyType as String] = kSecAttrKeyTypeEC
         attributes[kSecAttrKeySizeInBits as String] = 256
+        attributes[kSecAttrTokenID as String] = kSecAttrTokenIDSecureEnclave
         
         var error: Unmanaged<CFError>?
         let _ = SecKeyCreateRandomKey(attributes as CFDictionary, &error)
@@ -39,22 +40,23 @@ class Crypto {
         if let error = error?.takeRetainedValue(),
             CFErrorGetCode(error) == errSecUnimplemented {
             
-            self.hasSecurityEnclave = true
-            self.keySize = 256
-            self.keyType = kSecAttrKeyTypeEC
-            self.algorithm = .eciesEncryptionCofactorVariableIVX963SHA256AESGCM
-        } else {
             self.hasSecurityEnclave = false
             self.keySize = 4096
             self.keyType = kSecAttrKeyTypeRSA
             self.algorithm = .rsaEncryptionOAEPSHA512AESGCM
+            
+        } else {
+            self.hasSecurityEnclave = true
+            self.keySize = 256
+            self.keyType = kSecAttrKeyTypeEC
+            self.algorithm = .eciesEncryptionCofactorVariableIVX963SHA256AESGCM
         }
     }
     
     private func makeAndStoreKey(name: String) throws -> SecKey {
         guard let access =
             SecAccessControlCreateWithFlags(kCFAllocatorDefault,
-                                            kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+                                            kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, // kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
                                             SecAccessControlCreateFlags.privateKeyUsage,
                                             nil) else {
                                                 throw CryptoError.keyCreationFailed
